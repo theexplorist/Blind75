@@ -1,42 +1,48 @@
-# Player Service Architecture Diagram
+# Player Service Architecture Diagram (Pro-Level)
 
 ```mermaid
 flowchart LR
     %% Clients
     subgraph "Clients"
-        Clients[(API Consumers / Postman)]:::external
+        APIClients[(API Consumers / Postman<br>- Sends REST API requests<br>- Testing & Consumption)]:::external
     end
 
     %% API Test Collection
     subgraph "API Test Collection"
-        GetAll["GetAllPlayers.http"]:::external
-        GetBy["GetPlayerById.http"]:::external
-        ChatReq["chat_requests.txt"]:::external
+        GetAll["GetAllPlayers.http<br>- Example GET request"]:::external
+        GetBy["GetPlayerById.http<br>- Example GET by ID"]:::external
+        ChatReq["chat_requests.txt<br>- Example POST chat requests"]:::external
     end
 
     %% Java Application
     subgraph "Player Service (Spring Boot Java App)"
         direction TB
-        AppEntry["PlayerServiceJavaApplication"]:::java
+        AppEntry["PlayerServiceJavaApplication<br>- Spring Boot main class<br>- Starts app"]:::java
+
         subgraph "Configuration Layer"
-            Config["ChatClientConfiguration"]:::java
-        end
-        subgraph "Controller Layer"
-            PC["PlayerController"]:::java
-            CC["ChatController"]:::java
-        end
-        subgraph "Service Layer"
-            PS["PlayerService"]:::java
-            CCS["ChatClientService"]:::java
-        end
-        subgraph "Repository Layer"
-            PR["PlayerRepository"]:::java
-        end
-        subgraph "Model Layer"
-            PlayerModel["Player.java"]:::java
-            PlayersModel["Players.java"]:::java
+            Config["ChatClientConfiguration<br>- Configures HTTP client for Ollama LLM"]:::java
         end
 
+        subgraph "Controller Layer"
+            PC["PlayerController<br>- Handles /v1/players endpoints<br>- Maps requests to PlayerService"]:::java
+            CC["ChatController<br>- Handles /v1/chat/generate endpoint<br>- Maps requests to ChatClientService"]:::java
+        end
+
+        subgraph "Service Layer"
+            PS["PlayerService<br>- Implements business logic<br>- CRUD operations for Player<br>- Calls PlayerRepository"]:::java
+            CCS["ChatClientService<br>- Sends requests to Ollama LLM<br>- Handles responses"]:::java
+        end
+
+        subgraph "Repository Layer"
+            PR["PlayerRepository<br>- Spring Data JPA<br>- CRUD on Player table<br>- Connects to H2 DB"]:::java
+        end
+
+        subgraph "Model Layer"
+            PlayerModel["Player.java<br>- Entity representing a Player<br>- Maps DB columns"]:::java
+            PlayersModel["Players.java<br>- Wrapper / DTO for multiple players"]:::java
+        end
+
+        %% Layer connections
         AppEntry --> PC
         AppEntry --> CC
         PC --> PS
@@ -49,22 +55,23 @@ flowchart LR
 
     %% Resources
     subgraph "Resources"
-        Schema["schema.sql"]:::db
-        Yml["application.yml"]:::java
+        Schema["schema.sql<br>- Initializes H2 database"]:::db
+        Yml["application.yml<br>- Spring Boot config (DB, server, properties)"]:::java
     end
 
     %% Runtime Components
-    H2["H2 Database\n(in-memory)"]:::db
-    Ollama["Ollama LLM Container\ntinyllama\n(port 11434)"]:::external
+    H2["H2 Database<br>- In-memory database<br>- Stores Player data"]:::db
+    Ollama["Ollama LLM Container<br>- Handles AI chat generation<br>- Port 11434"]:::external
 
     %% Python Model Trainer (Build-time)
     subgraph "Python Model Trainer"
         direction TB
-        PM["player-service-model/"]:::build
-        ModelCode["model.py"]:::build
-        Notebook["train.ipynb"]:::build
-        JobLib["team_model.joblib"]:::build
-        DockerTrainer["Dockerfile"]:::build
+        PM["player-service-model/<br>- Model code & training scripts"]:::build
+        ModelCode["model.py<br>- AI model definition"]:::build
+        Notebook["train.ipynb<br>- Jupyter Notebook to train model"]:::build
+        JobLib["team_model.joblib<br>- Trained model artifact"]:::build
+        DockerTrainer["Dockerfile<br>- Build container for training"]:::build
+
         PM --> ModelCode
         PM --> Notebook
         ModelCode --> JobLib
@@ -72,18 +79,18 @@ flowchart LR
     end
 
     %% Connections
-    Clients --> GetAll
-    Clients --> GetBy
-    Clients --> ChatReq
-    Clients -- "GET /v1/players":::api --> PC
-    Clients -- "POST /v1/chat/generate":::api --> CC
+    APIClients --> GetAll
+    APIClients --> GetBy
+    APIClients --> ChatReq
+    APIClients -- "GET /v1/players":::api --> PC
+    APIClients -- "POST /v1/chat/generate":::api --> CC
 
     PR -- "JDBC (Spring Data JPA)":::dbEdge --> H2
-    Schema -- "init schema":::resource --> H2
-    Yml -- "app config":::resource --> AppEntry
+    Schema -- "Init DB schema":::resource --> H2
+    Yml -- "App configuration":::resource --> AppEntry
 
     CCS -- "HTTP POST /api/generate":::llm --> Ollama
-    JobLib -. "Volume mount":::buildEdge .-> Ollama
+    JobLib -. "Volume mount (build-time)":::buildEdge .-> Ollama
 
     %% Styles
     classDef java fill:#AED6F1,stroke:#1F618D,color:#1F618D
